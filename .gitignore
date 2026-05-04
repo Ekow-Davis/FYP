@@ -3,3 +3,9 @@ myenv/
 venv/
 .env/
 
+*.keras
+*.h5
+*.pkl
+*.pt
+*.pth
+models/lead_cnn/saved_weights/
