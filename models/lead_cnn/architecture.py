@@ -63,9 +63,15 @@ def build_lead_cnn():
 
   # Classification head
   x = layers.Flatten(name="flatten")(x)
-  x = layers.Dense(256, name="fc1")(x)
-  x = layers.LeakyReLU(alpha=0.1, name="fc1_leakyrelu")(x)
-  x = layers.Dropout(0.5, name="fc1_dropout")(x)
+  x = layers.Dense(128, name="fc1")(x)
+  x = layers.LeakyReLU(alpha=0.2, name="fc1_lrelu")(x)
+  x = layers.BatchNormalization(name="fc1_bn")(x)
+  x = layers.Dropout(0.25, name="fc1_dropout")(x)
+
+  x = layers.Dense(64, name="fc2")(x)
+  x = layers.LeakyReLU(alpha=0.2, name="fc2_lrelu")(x)
+  x = layers.BatchNormalization(name="fc2_bn")(x)
+  x = layers.Dropout(0.5, name="fc2_dropout")(x)
 
 
   outputs = layers.Dense(NUM_CLASSES, activation='softmax', name="output")(x)
