@@ -4,9 +4,9 @@ IMG_SIZE = (224, 224, 3)
 NUM_CLASSES = 4
 
 
-BATCH_SIZE = 32
-EPOCHS = 30
-LEARNING_RATE = 1e-4
+BATCH_SIZE = 64
+EPOCHS = 50
+LEARNING_RATE = 1e-3
 
 
 DATASET_PATH = "../../data/augmented_data"
