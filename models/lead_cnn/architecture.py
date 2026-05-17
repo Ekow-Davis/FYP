@@ -1,4 +1,3 @@
-import tensorflow as tf
 from tensorflow.keras import layers, models
 from dimension_reduction_block import dimension_reduction_block
 from config import IMG_SIZE, NUM_CLASSES
@@ -41,8 +40,6 @@ def build_lead_cnn():
 
 
   return model
-
-
 
 
 if __name__ == "__main__":

@@ -1,8 +1,5 @@
-import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from config import IMG_SIZE, BATCH_SIZE, DATASET_PATH
-
-
 
 
 def create_generators():

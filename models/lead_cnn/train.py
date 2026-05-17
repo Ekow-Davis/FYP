@@ -1,10 +1,7 @@
-import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
 from architecture import build_lead_cnn
 from dataset import create_generators
 from config import LEARNING_RATE, EPOCHS, MODEL_SAVE_PATH
-
-
 
 
 def main():
