@@ -9,3 +9,9 @@ venv/
 *.pt
 *.pth
 models/lead_cnn/saved_weights/
+KvasirV2/
+gi_data/
+KvasirV2/
+montalbo/
+ETIS-LaribPolypDB/
+.idea/
