@@ -1,0 +1,9 @@
+{
+  "image": "C:\\Users\\ekowd\\Desktop\\FYP\\FYP\\data\\augmented_data\\test\\pituitary\\Te-pi_0010_flip.jpg",
+  "true_class": "pituitary",
+  "pred_class": "pituitary",
+  "pred_index": 3,
+  "confidence": 0.9996,
+  "correct": true,
+  "layer_used": "conv6"
+}

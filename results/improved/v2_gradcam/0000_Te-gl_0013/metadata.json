@@ -1,0 +1,9 @@
+{
+  "image": "C:\\Users\\ekowd\\Desktop\\FYP\\FYP\\data\\augmented_data\\test\\glioma\\Te-gl_0013.jpg",
+  "true_class": "glioma",
+  "pred_class": "glioma",
+  "pred_index": 0,
+  "confidence": 0.9995,
+  "correct": true,
+  "layer_used": "conv6"
+}

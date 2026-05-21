@@ -1,0 +1,2 @@
+timestamp,variant,accuracy,precision_weighted,recall_weighted,f1_weighted,cohen_kappa
+20260521_045203,v1_class_weights,97.4941,97.5786,97.4941,97.488,0.96651
