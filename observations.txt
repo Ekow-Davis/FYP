@@ -1,1 +1,3 @@
 on Montalbo's dataset, it appears that using a standard split for the dataset hurts performance.
+
+Todo- Investigate why the brain tumour images are plenty
