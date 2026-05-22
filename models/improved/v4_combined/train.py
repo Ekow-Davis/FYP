@@ -7,6 +7,7 @@ Final model trained on all train+val with class weights, evaluated on test.
 import os
 import sys
 import json
+import gc
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
@@ -177,6 +178,10 @@ def main():
     tf.random.set_seed(RANDOM_SEED)
     np.random.seed(RANDOM_SEED)
 
+    # Free fold memory before building final model
+    gc.collect()
+    tf.keras.backend.clear_session()
+
     final_model = build_lead_cnn()
     final_model.compile(
         optimizer=Adam(learning_rate=LEARNING_RATE),
@@ -204,7 +209,7 @@ def main():
         X[t_idx], y_cat[t_idx],
         validation_data=(X[v_idx], y_cat[v_idx]),
         epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
+        batch_size=32,  # reduced from BATCH_SIZE to manage memory on large dataset
         callbacks=final_callbacks,
         class_weight=global_class_weights,
         verbose=1,
