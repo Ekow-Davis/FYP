@@ -3,7 +3,7 @@ import pandas as pd
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from config import IMG_SIZE, BATCH_SIZE, DATASET_PATH, RANDOM_SEED
 
-AUGMENTATION = "paper"  # options: "paper", "none", "modern"
+AUGMENTATION = "oct_conservative"  # options: "paper", "none", "modern", "oct_conservative"
 
 
 def _build_dataframe(split):
@@ -29,6 +29,17 @@ def _make_datagen():
         return ImageDataGenerator(
             rescale=1.0 / 255,
             horizontal_flip=True,
+        )
+    elif AUGMENTATION == "oct_conservative":
+        # Domain-appropriate augmentation for OCT retinal images
+        return ImageDataGenerator(
+            rescale=1.0 / 255,
+            horizontal_flip=True,
+            rotation_range=15,
+            width_shift_range=0.1,
+            height_shift_range=0.1,
+            zoom_range=0.1,
+            fill_mode='reflect',
         )
     elif AUGMENTATION == "none":
         return ImageDataGenerator(rescale=1.0 / 255)
