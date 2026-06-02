@@ -49,7 +49,7 @@ DROPOUT_FC2  = 0.50       # after Dense(64)
 # ── Training hyperparameters ──────────────────────────────────────────────────
 BATCH_SIZE    = 64
 EPOCHS        = 50
-LEARNING_RATE = 1e-3
+LEARNING_RATE = 5e-4
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 RESULTS_DIR     = os.path.join(ARCH_RESULTS_DIR, VARIANT_NAME)
