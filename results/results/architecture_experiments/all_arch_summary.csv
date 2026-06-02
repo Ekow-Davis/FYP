@@ -1,0 +1,2 @@
+timestamp,variant,accuracy,precision_weighted,recall_weighted,f1_weighted,cohen_kappa,learning_rate,batch_size,epochs,width_multiplier,se_reduction_ratio
+20260602_224338,depthwise,94.5626,94.6189,94.5626,94.4934,0.927312,0.001,64,50,1.0,

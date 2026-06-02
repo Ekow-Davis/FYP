@@ -1,0 +1,40 @@
+{
+  "timestamp": "20260522_173110",
+  "variant": "v3_kfold",
+  "accuracy": 98.9125,
+  "precision_weighted": 98.9126,
+  "recall_weighted": 98.9125,
+  "f1_weighted": 98.9118,
+  "cohen_kappa": 0.985467,
+  "per_class": {
+    "glioma": {
+      "precision": 98.7705,
+      "recall": 98.5685,
+      "f1": 98.6694
+    },
+    "meningioma": {
+      "precision": 98.1744,
+      "recall": 97.7778,
+      "f1": 97.9757
+    },
+    "notumor": {
+      "precision": 99.6656,
+      "recall": 99.3333,
+      "f1": 99.4992
+    },
+    "pituitary": {
+      "precision": 98.8806,
+      "recall": 99.8117,
+      "f1": 99.344
+    }
+  },
+  "paper_target": {
+    "accuracy": 98.7,
+    "precision": 98.65,
+    "recall": 98.6,
+    "f1": 98.62,
+    "cohen_kappa": 0.9825
+  },
+  "improvement": "kfold",
+  "note": "standalone_eval"
+}
