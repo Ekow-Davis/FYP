@@ -38,7 +38,7 @@ from arch_config import (
 VARIANT_NAME = "depthwise"
 
 # ── Architecture hyperparameters ──────────────────────────────────────────────
-WIDTH_MULTIPLIER = 1.0    # scale backbone filter counts (1.0 = same as LEAD-CNN)
+WIDTH_MULTIPLIER = 1.25    # scale backbone filter counts (1.0 = same as LEAD-CNN)
 LEAKY_ALPHA      = 0.2    # LeakyReLU slope (matches Fig.4 of paper)
 
 # ── Regularisation ────────────────────────────────────────────────────────────
@@ -49,7 +49,7 @@ DROPOUT_FC2  = 0.50       # after Dense(64)
 # ── Training hyperparameters ──────────────────────────────────────────────────
 BATCH_SIZE    = 64
 EPOCHS        = 50
-LEARNING_RATE = 5e-4
+LEARNING_RATE = 1e-3
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 RESULTS_DIR     = os.path.join(ARCH_RESULTS_DIR, VARIANT_NAME)
