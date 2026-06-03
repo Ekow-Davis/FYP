@@ -1,9 +1,0 @@
-{
-  "image": "C:\\Users\\ekowd\\Desktop\\FYP\\FYP\\data\\augmented_data\\test\\notumor\\Te-no_0019.jpg",
-  "true_class": "notumor",
-  "pred_class": "notumor",
-  "pred_index": 2,
-  "confidence": 1.0,
-  "correct": true,
-  "layer_used": "conv6"
-}

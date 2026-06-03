@@ -1,9 +1,0 @@
-{
-  "image": "C:\\Users\\ekowd\\Desktop\\FYP\\FYP\\data\\augmented_data\\test\\meningioma\\Te-me_0038.jpg",
-  "true_class": "meningioma",
-  "pred_class": "meningioma",
-  "pred_index": 1,
-  "confidence": 1.0,
-  "correct": true,
-  "layer_used": "conv6"
-}
