@@ -34,7 +34,7 @@ from arch_config import (
 VARIANT_NAME = "attention"
 
 # ── Architecture hyperparameters ──────────────────────────────────────────────
-SE_REDUCTION_RATIO = 4     # SE bottleneck ratio (16 = standard, tried 8, it was better so trying 4)
+SE_REDUCTION_RATIO = 2     # SE bottleneck ratio (16 = standard, tried 8= good, tried 4 = better, trying 2)
 LEAKY_ALPHA        = 0.2    # matches paper Fig.4
 
 # ── Regularisation (identical to base LEAD-CNN) ───────────────────────────────
