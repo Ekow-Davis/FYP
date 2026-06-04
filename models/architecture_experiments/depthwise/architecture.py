@@ -68,7 +68,7 @@ def dsc_block(x, filters, name, padding='valid'):
     x = layers.BatchNormalization(
         name=f"{name}_bn"
         )(x)    # ADDED THIS
-    x = layers.LeakyReLU(negative_slope=cfg.LEAKY_ALPHA, name=f"{name}_act")(x)
+    x = layers.LeakyReLU(negative_slope=_cfg.LEAKY_ALPHA, name=f"{name}_act")(x)
     return x
 
 
