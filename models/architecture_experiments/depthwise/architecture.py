@@ -58,18 +58,17 @@ def dsc_block(x, filters, name, padding='valid'):
     Valid padding used to match original LEAD-CNN output shapes.
     """
     x = layers.DepthwiseConv2D(
-        kernel_size=(3, 3),
-        padding=padding,
-        use_bias=False,
-        name=f"{name}_dw",
-    )(x)
+        kernel_size=(3,3), padding=padding,
+        use_bias=False, name=f"{name}_dw"
+        )(x)
     x = layers.Conv2D(
-        filters, (1, 1),
-        padding='same',
-        use_bias=True,
-        name=f"{name}_pw",
-    )(x)
-    x = layers.LeakyReLU(negative_slope=_cfg.LEAKY_ALPHA, name=f"{name}_act")(x)
+        filters, (1,1), padding='same',
+        use_bias=False, name=f"{name}_pw"
+        )(x)
+    x = layers.BatchNormalization(
+        name=f"{name}_bn"
+        )(x)    # ADDED THIS
+    x = layers.LeakyReLU(negative_slope=cfg.LEAKY_ALPHA, name=f"{name}_act")(x)
     return x
 
 
