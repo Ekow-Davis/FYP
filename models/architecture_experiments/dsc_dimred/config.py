@@ -1,16 +1,22 @@
 """
-Combined experiment (DSC + SE) — configuration.
+DSC Dimension Reduction experiment — configuration.
 
-Both depthwise separable convolutions AND channel attention together.
-Tune this AFTER you have good individual results from depthwise/ and attention/.
-The optimal settings here will likely be close to whichever individual
-experiment performed best, but may need slight adjustment.
+This experiment keeps the backbone EXACTLY as the original LEAD-CNN paper,
+but replaces the 3x3 and 5x5 convolutions inside the Modified Dimension
+Reduction Block with depthwise separable equivalents.
+
+The 1x1 convolutions in the block are kept standard since they are already
+parameter-efficient and serve as channel mixers (depthwise can't do that).
 
 ── What to tune ─────────────────────────────────────────────────────────────
-WIDTH_MULTIPLIER   : same as depthwise/ — start at whatever worked there
-SE_REDUCTION_RATIO : same as attention/ — start at whatever worked there
-LEARNING_RATE      : DSC is sensitive to LR, start at 5e-4 if 1e-3 was
-                     unstable in the depthwise experiment
+LEARNING_RATE : start at 1e-3 (paper optimal for backbone)
+    Only reduce if val loss is unstable.
+
+DSC_USE_BN : whether to add BatchNorm after DSC layers in the block.
+    True = recommended based on depthwise experiment findings.
+    False = matches original block style (no BN).
+
+Everything else identical to base LEAD-CNN.
 """
 
 import os
@@ -25,14 +31,13 @@ from arch_config import (
     RANDOM_SEED, ARCH_RESULTS_DIR, LEAD_CNN_DIR, PROJECT_ROOT,
 )
 
-VARIANT_NAME = "combined"
+VARIANT_NAME = "dsc_dimred"
 
 # ── Architecture hyperparameters ──────────────────────────────────────────────
-WIDTH_MULTIPLIER   = 1.25    # update after depthwise results
-SE_REDUCTION_RATIO = 4     # update after attention results
-LEAKY_ALPHA        = 0.2
+DSC_USE_BN  = True      # add BatchNorm after DSC layers in dim reduction block
+LEAKY_ALPHA = 0.2       # matches paper Fig.4
 
-# ── Regularisation ────────────────────────────────────────────────────────────
+# ── Regularisation (identical to base LEAD-CNN) ───────────────────────────────
 DROPOUT_CONV = 0.25
 DROPOUT_FC1  = 0.25
 DROPOUT_FC2  = 0.50
@@ -40,8 +45,8 @@ DROPOUT_FC2  = 0.50
 # ── Training hyperparameters ──────────────────────────────────────────────────
 BATCH_SIZE    = 64
 EPOCHS        = 50
-LEARNING_RATE = 1e-3    # start lower since DSC needs more careful tuning
+LEARNING_RATE = 1e-3
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 RESULTS_DIR     = os.path.join(ARCH_RESULTS_DIR, VARIANT_NAME)
-MODEL_SAVE_PATH = os.path.join(RESULTS_DIR, "combined_best.keras")
+MODEL_SAVE_PATH = os.path.join(RESULTS_DIR, "dsc_dimred_best.keras")

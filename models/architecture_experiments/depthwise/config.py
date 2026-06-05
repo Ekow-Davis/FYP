@@ -38,7 +38,7 @@ from arch_config import (
 VARIANT_NAME = "depthwise"
 
 # ── Architecture hyperparameters ──────────────────────────────────────────────
-WIDTH_MULTIPLIER = 1.25    # scale backbone filter counts (1.0 = same as LEAD-CNN)
+WIDTH_MULTIPLIER = 1.5    # scale backbone filter counts (1.0 = same as LEAD-CNN)
 LEAKY_ALPHA      = 0.2    # LeakyReLU slope (matches Fig.4 of paper)
 
 # ── Regularisation ────────────────────────────────────────────────────────────
