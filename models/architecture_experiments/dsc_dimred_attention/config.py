@@ -28,7 +28,7 @@ from arch_config import (
 VARIANT_NAME = "dsc_dimred_attention"
 
 # ── Architecture hyperparameters ──────────────────────────────────────────────
-DSC_USE_BN         = True   # BatchNorm after DSC layers (from dsc_dimred findings)
+DSC_USE_BN         = False   # BatchNorm after DSC layers (from dsc_dimred findings)
 SE_REDUCTION_RATIO = 4      # best ratio from attention experiment
 LEAKY_ALPHA        = 0.2
 
