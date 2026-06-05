@@ -29,7 +29,7 @@ VARIANT_NAME = "combined"
 
 # ── Architecture hyperparameters ──────────────────────────────────────────────
 WIDTH_MULTIPLIER   = 1.0    # update after depthwise results
-SE_REDUCTION_RATIO = 16     # update after attention results
+SE_REDUCTION_RATIO = 4     # update after attention results
 LEAKY_ALPHA        = 0.2
 
 # ── Regularisation ────────────────────────────────────────────────────────────
