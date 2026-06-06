@@ -9,7 +9,7 @@ EPOCHS = 50
 LEARNING_RATE = 1e-3
 
 
-DATASET_PATH = "../../data/augmented_data"
+DATASET_PATH = "../../data/cleaned_data_aug_gamma"
 MODEL_SAVE_PATH = "saved_weights/lead_cnn_model.keras"
 
 

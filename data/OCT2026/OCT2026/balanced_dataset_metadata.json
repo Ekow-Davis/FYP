@@ -1,0 +1,44 @@
+{
+  "dataset_name": "OCT2017_Balanced_70_15_15",
+  "created_date": "2026-04-02 04:36:50.426100",
+  "split_ratio": "70% Train / 15% Validation / 15% Test",
+  "classes": [
+    "CNV",
+    "DME",
+    "DRUSEN",
+    "NORMAL"
+  ],
+  "image_size": "224x224",
+  "total_images": 84009,
+  "split_statistics": {
+    "train": {
+      "CNV": 26080,
+      "DME": 8043,
+      "DRUSEN": 6073,
+      "NORMAL": 18501,
+      "TOTAL": 58697
+    },
+    "val": {
+      "CNV": 5616,
+      "DME": 1737,
+      "DRUSEN": 1327,
+      "NORMAL": 3982,
+      "TOTAL": 12662
+    },
+    "test": {
+      "CNV": 5614,
+      "DME": 1734,
+      "DRUSEN": 1321,
+      "NORMAL": 3981,
+      "TOTAL": 12650
+    }
+  },
+  "original_vs_balanced_comparison": {
+    "original_validation_size": 32,
+    "balanced_validation_size": 12662,
+    "original_test_size": 968,
+    "balanced_test_size": 12650,
+    "validation_increase": "395.7x",
+    "test_increase": "13.1x"
+  }
+}
