@@ -251,3 +251,115 @@ def save_run_results(y_true, y_pred, class_labels, variant_name,
     print(f"    Metrics  : {json_path}")
     print(f"    Confusion: {cm_path}")
     print(f"    Summary  : {summary_path}\n")
+
+
+# ── ROC / AUC ─────────────────────────────────────────────────────────────────
+
+def plot_roc_curves(y_true, y_prob, class_labels, variant_name, results_dir):
+    """
+    Plots one ROC curve per class (one-vs-rest) plus the macro-average.
+    Saves the figure and returns a dict of per-class AUC values.
+
+    Args:
+        y_true:       (N,) int array of true class indices
+        y_prob:       (N, C) float array of softmax probabilities
+        class_labels: list of class name strings
+        variant_name: string identifier for titles and filenames
+        results_dir:  directory to save the figure and AUC JSON
+    """
+    try:
+        import matplotlib
+        matplotlib.use('Agg')   # non-interactive backend — works on remote servers
+        import matplotlib.pyplot as plt
+        from sklearn.metrics import roc_curve, auc
+        from sklearn.preprocessing import label_binarize
+    except ImportError as e:
+        print(f"  Warning: ROC plot skipped — missing dependency: {e}")
+        return {}
+
+    n_classes = len(class_labels)
+    # Binarize true labels for one-vs-rest
+    y_bin = label_binarize(y_true, classes=list(range(n_classes)))
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    colors = ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3']
+    auc_scores = {}
+
+    # Per-class curves
+    for i, (label, color) in enumerate(zip(class_labels, colors)):
+        fpr, tpr, _ = roc_curve(y_bin[:, i], y_prob[:, i])
+        roc_auc     = auc(fpr, tpr)
+        auc_scores[label] = round(float(roc_auc), 6)
+        ax.plot(fpr, tpr, color=color, lw=2,
+                label=f"{label} (AUC = {roc_auc:.4f})")
+
+    # Macro-average curve
+    all_fpr = np.unique(np.concatenate(
+        [roc_curve(y_bin[:, i], y_prob[:, i])[0] for i in range(n_classes)]
+    ))
+    mean_tpr = np.zeros_like(all_fpr)
+    for i in range(n_classes):
+        fpr, tpr, _ = roc_curve(y_bin[:, i], y_prob[:, i])
+        mean_tpr += np.interp(all_fpr, fpr, tpr)
+    mean_tpr /= n_classes
+    macro_auc = auc(all_fpr, mean_tpr)
+    auc_scores['macro_average'] = round(float(macro_auc), 6)
+
+    ax.plot(all_fpr, mean_tpr, color='black', lw=2.5, linestyle='--',
+            label=f"Macro Average (AUC = {macro_auc:.4f})")
+
+    # Reference line
+    ax.plot([0, 1], [0, 1], 'k:', lw=1, alpha=0.5)
+
+    ax.set_xlim([0.0, 1.0])
+    ax.set_ylim([0.0, 1.02])
+    ax.set_xlabel('False Positive Rate', fontsize=12)
+    ax.set_ylabel('True Positive Rate', fontsize=12)
+    ax.set_title(f'ROC Curves — {variant_name}', fontsize=13)
+    ax.legend(loc='lower right', fontsize=10)
+    ax.grid(True, alpha=0.3)
+
+    os.makedirs(results_dir, exist_ok=True)
+    fig_path = os.path.join(results_dir, f"roc_curves_{variant_name}.png")
+    plt.tight_layout()
+    plt.savefig(fig_path, dpi=150)
+    plt.close()
+
+    # Save AUC scores to JSON
+    auc_path = os.path.join(results_dir, f"auc_scores_{variant_name}.json")
+    with open(auc_path, 'w') as f:
+        json.dump({"variant": variant_name, "auc_scores": auc_scores}, f, indent=2)
+
+    # Print summary
+    sep = "=" * 50
+    print(f"\n{sep}")
+    print(f"  {variant_name.upper()} — AUC Scores")
+    print(sep)
+    for label, score in auc_scores.items():
+        print(f"  {label:<20} {score:.4f}")
+    print(sep)
+    print(f"  ROC figure : {fig_path}")
+    print(f"  AUC JSON   : {auc_path}\n")
+
+    return auc_scores
+
+
+# ── Save predictions for McNemar's test ───────────────────────────────────────
+
+def save_predictions(y_true, y_pred, y_prob, variant_name, results_dir):
+    """
+    Saves raw per-sample predictions to a .npz file so McNemar's test
+    can load and compare them against another model's predictions later.
+
+    Saved to: results_dir/predictions_<variant_name>.npz
+    """
+    os.makedirs(results_dir, exist_ok=True)
+    pred_path = os.path.join(results_dir, f"predictions_{variant_name}.npz")
+    np.savez(pred_path,
+             y_true=y_true,
+             y_pred=y_pred,
+             y_prob=y_prob,
+             variant=np.array([variant_name]))
+    print(f"  Predictions saved: {pred_path}")
+    return pred_path

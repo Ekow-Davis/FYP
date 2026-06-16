@@ -1,5 +1,6 @@
 """
 DSC DimRed experiment — evaluation script.
+Runs metrics, ROC/AUC, and saves predictions for McNemar's test.
 """
 
 import os
@@ -21,7 +22,8 @@ _spec.loader.exec_module(config)
 
 from arch_dataset import create_generators
 from arch_results_logger import (
-    print_final_scores, print_confusion_matrix, save_run_results
+    print_final_scores, print_confusion_matrix, save_run_results,
+    plot_roc_curves, save_predictions
 )
 
 
@@ -31,8 +33,8 @@ def main():
     model = tf.keras.models.load_model(config.MODEL_SAVE_PATH, compile=False)
 
     print(f"\nEvaluating {config.VARIANT_NAME} on test set...")
-    predictions  = model.predict(test_gen, verbose=1)
-    y_pred       = np.argmax(predictions, axis=1)
+    y_prob       = model.predict(test_gen, verbose=1)
+    y_pred       = np.argmax(y_prob, axis=1)
     y_true       = test_gen.classes
     class_labels = list(test_gen.class_indices.keys())
 
@@ -44,6 +46,14 @@ def main():
         config.RESULTS_DIR, config=config,
         extra_metrics={"architecture": "dsc_in_dimred_block_only"}
     )
+
+    # ROC curves and AUC scores
+    plot_roc_curves(y_true, y_prob, class_labels,
+                    config.VARIANT_NAME, config.RESULTS_DIR)
+
+    # Save raw predictions for McNemar's test
+    save_predictions(y_true, y_pred, y_prob,
+                     config.VARIANT_NAME, config.RESULTS_DIR)
 
 
 if __name__ == "__main__":
