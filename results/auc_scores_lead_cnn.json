@@ -1,0 +1,10 @@
+{
+  "variant": "lead_cnn",
+  "auc_scores": {
+    "glioma": 0.999419,
+    "meningioma": 0.999108,
+    "notumor": 0.999956,
+    "pituitary": 0.999985,
+    "macro_average": 0.999634
+  }
+}

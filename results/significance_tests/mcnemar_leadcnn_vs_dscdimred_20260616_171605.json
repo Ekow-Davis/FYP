@@ -1,0 +1,15 @@
+{
+  "name_a": "LEAD-CNN",
+  "name_b": "DSC DimRed",
+  "n_total": 2115,
+  "n_both_correct": 2078,
+  "n_a_only": 9,
+  "n_b_only": 17,
+  "n_both_wrong": 11,
+  "statistic": 1.884615,
+  "p_value": 0.16981051,
+  "significant_005": false,
+  "significant_001": false,
+  "test_type": "chi-squared (continuity corrected)",
+  "timestamp": "20260616_171605"
+}
