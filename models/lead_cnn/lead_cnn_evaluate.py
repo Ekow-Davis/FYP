@@ -35,11 +35,12 @@ def main():
     y_true       = test_gen.classes
     class_labels = list(test_gen.class_indices.keys())
 
-    print_final_scores(y_true, y_pred, class_labels, VARIANT_NAME)
-    print_confusion_matrix(y_true, y_pred, class_labels, VARIANT_NAME)
+    # lead_cnn results_logger takes 3 args (no variant_name parameter)
+    print_final_scores(y_true, y_pred, class_labels)
+    print_confusion_matrix(y_true, y_pred, class_labels)
     save_run_results(y_true, y_pred, class_labels, RESULTS_DIR)
 
-    # ROC curves and AUC scores
+    # ROC curves and AUC scores — uses arch_results_logger which takes variant_name
     plot_roc_curves(y_true, y_prob, class_labels,
                     VARIANT_NAME, RESULTS_DIR)
 
