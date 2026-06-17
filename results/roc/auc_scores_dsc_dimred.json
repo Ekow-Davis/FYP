@@ -1,0 +1,10 @@
+{
+  "variant": "dsc_dimred",
+  "auc_scores": {
+    "glioma": 0.999789,
+    "meningioma": 0.99984,
+    "notumor": 0.999998,
+    "pituitary": 0.99999,
+    "macro_average": 0.999919
+  }
+}
