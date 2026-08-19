@@ -6,8 +6,12 @@ Each Keras pretrained model has its own preprocessing function
 pixels to the range expected by that model. We pass this in as
 `preprocess_fn` so the correct normalisation is applied per model.
 
-Augmentation on TRAIN only: horizontal flip, vertical flip, rotation 90°.
-Val and test: no augmentation.
+FIX (double augmentation): DATASET_PATH points at data/augmented_data/,
+which already contains three physical files per scan (original,
+"_rot90", "_flip"). Live ImageDataGenerator augmentation on top of that
+applied the same transformation family twice. Augmentation is now
+file-level only, so the train generator applies preprocessing only.
+See lead_cnn/dataset.py for the same change.
 """
 
 import sys, os
@@ -16,6 +20,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import numpy as np
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from baseline_config import IMG_SIZE, BATCH_SIZE, DATASET_PATH, RANDOM_SEED
+
+# Augmentation already baked into the files under augmented_data/.
+LIVE_AUGMENT = False
 
 
 def create_generators(preprocess_fn=None):
@@ -36,7 +43,8 @@ def create_generators(preprocess_fn=None):
         else:
             kwargs['rescale'] = 1.0 / 255
 
-        if augment:
+        # Only applied when LIVE_AUGMENT is explicitly enabled.
+        if augment and LIVE_AUGMENT:
             kwargs['rotation_range']   = 90
             kwargs['horizontal_flip']  = True
             kwargs['vertical_flip']    = True

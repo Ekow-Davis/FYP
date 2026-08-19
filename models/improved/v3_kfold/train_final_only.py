@@ -6,6 +6,13 @@ Use this if the folds already completed but train.py crashed
 during the final model phase (e.g. OOM error).
 
 Fold results in results/improved/v3_kfold/fold_*/ are preserved.
+
+FIX (leak correction): load_trainval_arrays() now returns a third
+value, `groups`, identifying which files are copies of the same
+original scan. This script now unpacks that third value, and its
+internal 90/10 callback split is made group-aware so no scan's
+"_rot90"/"_flip" copy ends up on the opposite side of that split
+from its original.
 """
 
 import os
@@ -38,7 +45,12 @@ from improved_results_logger import (
 )
 
 # Reduced batch size for final model — it trains on ~19k samples at once
-# so we use a smaller batch to reduce peak memory usage
+# so we use a smaller batch to reduce peak memory usage.
+#
+# NOTE: batch size materially affects accuracy for this architecture
+# (the paper's own ablation found 64 optimal). If the machine has
+# enough RAM/VRAM, set this to BATCH_SIZE (64) for a result comparable
+# to a full train.py run.
 FINAL_BATCH_SIZE = 32
 
 
@@ -53,12 +65,14 @@ def main():
             fold_summary = json.load(f)
         print(f"\nLoaded fold summary from: {fold_summary_path}")
         print(f"  Mean accuracy across folds: {fold_summary.get('mean_accuracy', 'N/A'):.4f}")
-        print(f"  Std accuracy across folds:  {fold_summary.get('std_accuracy', 'N/A'):.4f}\n")
+        print(f"  Std accuracy across folds:  {fold_summary.get('std_accuracy', 'N/A'):.4f}")
+        print(f"  Group aware: {fold_summary.get('group_aware', False)}\n")
     else:
         print("Warning: kfold_summary.json not found — fold stats won't be included in results.")
 
     # ── Load data ─────────────────────────────────────────────────────────────
-    X, y = load_trainval_arrays()
+    X, y, groups = load_trainval_arrays()
+    n_unique_scans = len(set(groups))
 
     # Explicitly free anything lingering from fold training
     gc.collect()
@@ -67,6 +81,7 @@ def main():
     sep = "=" * 68
     print(f"\n{sep}")
     print(f"  Training final model on all {len(X)} train+val samples...")
+    print(f"  ({n_unique_scans} unique scans, ~{len(X)/n_unique_scans:.1f} copies/scan)")
     print(f"  Batch size reduced to {FINAL_BATCH_SIZE} to manage memory.")
     print(sep)
 
@@ -83,11 +98,22 @@ def main():
     final_weights_path = os.path.join(RESULTS_DIR, "final_model_best.keras")
     y_cat = to_categorical(y, NUM_CLASSES)
 
-    # 90/10 internal split for callbacks only
-    indices     = np.random.permutation(len(X))
-    split_idx   = int(0.9 * len(X))
-    train_idx_f = indices[:split_idx]
-    val_idx_f   = indices[split_idx:]
+    # ── 90/10 internal split for callbacks only — GROUP AWARE ────────────────
+    # Split on unique scan ids rather than on individual images, so a
+    # scan's original/rot90/flip copies never straddle the split.
+    unique_groups   = np.array(sorted(set(groups)))
+    rng             = np.random.default_rng(RANDOM_SEED)
+    shuffled_groups = rng.permutation(unique_groups)
+    split_point     = int(0.9 * len(shuffled_groups))
+    train_groups_f  = set(shuffled_groups[:split_point])
+    val_groups_f    = set(shuffled_groups[split_point:])
+
+    train_idx_f = np.array([i for i, g in enumerate(groups) if g in train_groups_f])
+    val_idx_f   = np.array([i for i, g in enumerate(groups) if g in val_groups_f])
+
+    print(f"  Internal callback split (group aware): "
+          f"{len(train_idx_f)} train / {len(val_idx_f)} val images "
+          f"({len(train_groups_f)} / {len(val_groups_f)} scans)")
 
     final_callbacks = [
         ModelCheckpoint(
@@ -154,6 +180,9 @@ def main():
             "kfold_std_acc":  fold_summary.get("std_accuracy"),
             "kfold_mean_f1":  fold_summary.get("mean_f1"),
             "kfold_std_f1":   fold_summary.get("std_f1"),
+            "group_aware":    True,
+            "n_unique_scans": n_unique_scans,
+            "final_batch_size": FINAL_BATCH_SIZE,
         }
     )
 

@@ -2,18 +2,29 @@
 v4_combined — Training script.
 K-Fold cross validation WITH class weights applied each fold.
 Final model trained on all train+val with class weights, evaluated on test.
+
+FIX 1 (leak correction): now uses StratifiedGroupKFold with the `groups`
+array returned by kfold_dataset.load_trainval_arrays(), so a scan's
+original / "_rot90" / "_flip" copies are always kept in the same fold
+rather than being split across a fold's train/validation boundary.
+
+FIX 2 (import isolation): kfold_dataset is loaded by explicit file path
+instead of via sys.path. Previously v3_kfold's directory was added to
+sys.path, which risked v3's config.py shadowing v4's and caused V4 to
+write results into V3's directory.
 """
 
 import os
 import sys
 import json
 import gc
+import importlib.util as _ilu
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
 from tensorflow.keras.utils import to_categorical
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score,
@@ -23,24 +34,36 @@ from sklearn.metrics import (
 _HERE     = os.path.dirname(os.path.abspath(__file__))
 _SHARED   = os.path.join(_HERE, "..", "shared")
 _LEAD_CNN = os.path.join(_HERE, "..", "..", "lead_cnn")
-_V3       = os.path.join(_HERE, "..", "v3_kfold")
 
 sys.path.insert(0, _LEAD_CNN)
 sys.path.insert(0, _SHARED)
 sys.path.insert(0, _HERE)   # inserted last = highest priority, always wins
-sys.path.insert(0, _V3)
+# NOTE: v3_kfold is deliberately NOT added to sys.path — see FIX 2 above.
 
 from config import (
     VARIANT_NAME, RESULTS_DIR, N_FOLDS,
     LEARNING_RATE, EPOCHS, BATCH_SIZE, RANDOM_SEED, NUM_CLASSES,
 )
 from architecture import build_lead_cnn
-from kfold_dataset import load_trainval_arrays, get_test_generator
 from improved_results_logger import (
     print_model_summary, print_training_history,
     print_kfold_summary, print_final_scores,
     print_confusion_matrix, save_run_results
 )
+
+# ── Load kfold_dataset by explicit path (FIX 2) ───────────────────────────────
+_kfd_spec = _ilu.spec_from_file_location(
+    "kfold_dataset",
+    os.path.join(_HERE, "..", "v3_kfold", "kfold_dataset.py")
+)
+_kfd = _ilu.module_from_spec(_kfd_spec)
+_kfd_spec.loader.exec_module(_kfd)
+load_trainval_arrays = _kfd.load_trainval_arrays
+get_test_generator   = _kfd.get_test_generator
+
+# Final model batch size — reduced from BATCH_SIZE to manage memory on
+# the full train+val array. Note this lowers accuracy relative to 64.
+FINAL_BATCH_SIZE = 32
 
 
 def compute_fold_class_weights(y_train):
@@ -91,12 +114,12 @@ def train_fold(X_train, y_train, X_val, y_val, fold_num, fold_dir):
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         callbacks=callbacks,
-        class_weight=class_weights,   # ← class weights applied per fold
+        class_weight=class_weights,   # class weights applied per fold
         verbose=1,
     )
 
-    preds        = model.predict(X_val, verbose=0)
-    y_pred       = np.argmax(preds, axis=1)
+    preds  = model.predict(X_val, verbose=0)
+    y_pred = np.argmax(preds, axis=1)
 
     fold_metrics = {
         "fold":          fold_num,
@@ -120,10 +143,23 @@ def train_fold(X_train, y_train, X_val, y_val, fold_num, fold_dir):
     return fold_metrics, history
 
 
+def _verify_no_group_leak(train_idx, val_idx, groups):
+    """Raises if any scan appears in both train and validation for a fold."""
+    overlap = set(groups[train_idx]) & set(groups[val_idx])
+    if overlap:
+        raise RuntimeError(
+            f"Group leak detected — {len(overlap)} scan(s) in both train and "
+            f"val for this fold: {list(overlap)[:5]}..."
+        )
+
+
 def main():
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
-    X, y = load_trainval_arrays()
+    X, y, groups = load_trainval_arrays()
+    n_unique_scans = len(set(groups))
+    print(f"  Dataset: {len(X)} images, {n_unique_scans} unique scans "
+          f"(~{len(X)/n_unique_scans:.1f} copies/scan)")
 
     # Global class weights (for logging and final model training)
     global_class_weights = compute_fold_class_weights(y)
@@ -131,14 +167,21 @@ def main():
     for cls, w in sorted(global_class_weights.items()):
         print(f"    class {cls}: {w:.4f}")
 
-    skf = StratifiedKFold(n_splits=N_FOLDS, shuffle=True, random_state=RANDOM_SEED)
+    # ── Group-aware K-Fold (FIX 1) ────────────────────────────────────────────
+    skf = StratifiedGroupKFold(n_splits=N_FOLDS, shuffle=True,
+                               random_state=RANDOM_SEED)
     fold_results = []
     sep = "=" * 68
 
-    for fold_num, (train_idx, val_idx) in enumerate(skf.split(X, y), start=1):
+    for fold_num, (train_idx, val_idx) in enumerate(
+        skf.split(X, y, groups=groups), start=1
+    ):
+        _verify_no_group_leak(train_idx, val_idx, groups)
+
         print(f"\n{sep}")
         print(f"  FOLD {fold_num} / {N_FOLDS}  [class weights + kfold]")
         print(f"  Train: {len(train_idx)}  |  Val: {len(val_idx)}")
+        print(f"  Group check: PASSED — no scan in both train and val")
         print(sep)
 
         fold_dir  = os.path.join(RESULTS_DIR, f"fold_{fold_num}")
@@ -168,6 +211,8 @@ def main():
             "mean_kappa":      float(np.mean(kappas)),
             "std_kappa":       float(np.std(kappas)),
             "global_weights":  global_class_weights,
+            "group_aware":     True,
+            "n_unique_scans":  n_unique_scans,
         }, f, indent=2)
 
     # ── Final model on all train+val ──────────────────────────────────────────
@@ -192,9 +237,16 @@ def main():
     final_weights_path = os.path.join(RESULTS_DIR, "final_model_best.keras")
     y_cat = to_categorical(y, NUM_CLASSES)
 
-    indices   = np.random.permutation(len(X))
-    split_idx = int(0.9 * len(X))
-    t_idx, v_idx = indices[:split_idx], indices[split_idx:]
+    # Internal callback split — group aware, same reasoning as the folds
+    unique_groups   = np.array(sorted(set(groups)))
+    rng             = np.random.default_rng(RANDOM_SEED)
+    shuffled_groups = rng.permutation(unique_groups)
+    split_point     = int(0.9 * len(shuffled_groups))
+    train_groups_f  = set(shuffled_groups[:split_point])
+    val_groups_f    = set(shuffled_groups[split_point:])
+
+    t_idx = np.array([i for i, g in enumerate(groups) if g in train_groups_f])
+    v_idx = np.array([i for i, g in enumerate(groups) if g in val_groups_f])
 
     final_callbacks = [
         ModelCheckpoint(filepath=final_weights_path, monitor='val_accuracy',
@@ -209,7 +261,7 @@ def main():
         X[t_idx], y_cat[t_idx],
         validation_data=(X[v_idx], y_cat[v_idx]),
         epochs=EPOCHS,
-        batch_size=32,  # reduced from BATCH_SIZE to manage memory on large dataset
+        batch_size=FINAL_BATCH_SIZE,
         callbacks=final_callbacks,
         class_weight=global_class_weights,
         verbose=1,
@@ -239,21 +291,19 @@ def main():
     save_run_results(
         y_true, y_pred, class_labels, VARIANT_NAME, RESULTS_DIR,
         extra_metrics={
-            "improvement":      "kfold+class_weights",
-            "n_folds":          N_FOLDS,
-            "kfold_mean_acc":   round(float(np.mean(accs)), 4),
-            "kfold_std_acc":    round(float(np.std(accs)),  4),
-            "kfold_mean_f1":    round(float(np.mean(f1s)),  4),
-            "kfold_std_f1":     round(float(np.std(f1s)),   4),
-            "class_weights":    global_class_weights,
+            "improvement":     "kfold+class_weights",
+            "n_folds":         N_FOLDS,
+            "kfold_mean_acc":  round(float(np.mean(accs)), 4),
+            "kfold_std_acc":   round(float(np.std(accs)),  4),
+            "kfold_mean_f1":   round(float(np.mean(f1s)),  4),
+            "kfold_std_f1":    round(float(np.std(f1s)),   4),
+            "class_weights":   global_class_weights,
+            "group_aware":     True,
+            "n_unique_scans":  n_unique_scans,
         }
     )
 
     print(f"  Final model: {final_weights_path}\n")
-    print(f"  To run Grad-CAM on this model:")
-    print(f"  python ../v2_gradcam/gradcam.py "
-          f"--model {final_weights_path} "
-          f"--images <path/to/test/images>\n")
 
 
 if __name__ == "__main__":

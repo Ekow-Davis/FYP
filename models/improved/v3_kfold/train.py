@@ -11,6 +11,18 @@ After all folds:
   - Reports mean ± std across folds (variance analysis)
   - Trains a final model on ALL train+val data
   - Evaluates once on the untouched test set (final holdout score)
+
+FIX (leak correction): augmented_data/train and augmented_data/val each
+contain three physical copies per original scan (original, "_rot90",
+"_flip" — see 03_data_augmentation.ipynb). The previous version used
+plain StratifiedKFold, which is unaware of this and could place
+different copies of the SAME scan in a fold's training set and that
+same fold's validation set. This version uses StratifiedGroupKFold
+with a `groups` array (from kfold_dataset.load_trainval_arrays) so
+that every copy of a given scan is always assigned to the same fold,
+never split across a fold's train/validation boundary.
+
+NOTE: StratifiedGroupKFold requires scikit-learn >= 1.1.
 """
 
 import os
@@ -21,7 +33,7 @@ import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
 from tensorflow.keras.utils import to_categorical
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score,
     f1_score, cohen_kappa_score
@@ -85,7 +97,6 @@ def train_fold(X_train, y_train, X_val, y_val, fold_num, fold_dir):
         ),
     ]
 
-    # Convert labels to categorical for training
     y_train_cat = to_categorical(y_train, NUM_CLASSES)
     y_val_cat   = to_categorical(y_val,   NUM_CLASSES)
 
@@ -98,7 +109,6 @@ def train_fold(X_train, y_train, X_val, y_val, fold_num, fold_dir):
         verbose=1,
     )
 
-    # Evaluate on val fold
     preds  = model.predict(X_val, verbose=0)
     y_pred = np.argmax(preds, axis=1)
 
@@ -113,7 +123,6 @@ def train_fold(X_train, y_train, X_val, y_val, fold_num, fold_dir):
         "epochs_run":   len(history.history['accuracy']),
     }
 
-    # Save fold history
     history_path = os.path.join(fold_dir, f"fold{fold_num}_history.json")
     with open(history_path, "w") as f:
         json.dump(
@@ -124,22 +133,49 @@ def train_fold(X_train, y_train, X_val, y_val, fold_num, fold_dir):
     return fold_metrics, history
 
 
+def _verify_no_group_leak(train_idx, val_idx, groups):
+    """
+    Sanity check: confirms no scan group appears in both the training
+    and validation index sets for a fold. Raises if a leak is found.
+    """
+    train_groups = set(groups[train_idx])
+    val_groups   = set(groups[val_idx])
+    overlap = train_groups & val_groups
+    if overlap:
+        raise RuntimeError(
+            f"Group leak detected — {len(overlap)} scan(s) appear in both "
+            f"train and validation for this fold: {list(overlap)[:5]}..."
+        )
+
+
 def main():
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
     # ── Load data ─────────────────────────────────────────────────────────────
-    X, y = load_trainval_arrays()
+    X, y, groups = load_trainval_arrays()
 
-    # ── K-Fold cross validation ───────────────────────────────────────────────
-    skf = StratifiedKFold(n_splits=N_FOLDS, shuffle=True, random_state=RANDOM_SEED)
+    n_unique_scans = len(set(groups))
+    print(f"  Dataset: {len(X)} images, {n_unique_scans} unique scans "
+          f"(~{len(X) / n_unique_scans:.1f} copies/scan)")
+
+    # ── K-Fold cross validation (group-aware) ─────────────────────────────────
+    # StratifiedGroupKFold keeps all copies of a scan (original, rot90, flip)
+    # together in the same fold, preventing the leak plain StratifiedKFold
+    # was susceptible to.
+    skf = StratifiedGroupKFold(n_splits=N_FOLDS, shuffle=True, random_state=RANDOM_SEED)
 
     fold_results = []
     sep = "=" * 68
 
-    for fold_num, (train_idx, val_idx) in enumerate(skf.split(X, y), start=1):
+    for fold_num, (train_idx, val_idx) in enumerate(
+        skf.split(X, y, groups=groups), start=1
+    ):
+        _verify_no_group_leak(train_idx, val_idx, groups)
+
         print(f"\n{sep}")
         print(f"  FOLD {fold_num} / {N_FOLDS}")
         print(f"  Train: {len(train_idx)} samples  |  Val: {len(val_idx)} samples")
+        print(f"  Group check: PASSED — no scan appears in both train and val")
         print(sep)
 
         X_train_f, y_train_f = X[train_idx], y[train_idx]
@@ -167,13 +203,15 @@ def main():
 
     with open(fold_summary_path, "w") as f:
         json.dump({
-            "folds":         fold_results,
-            "mean_accuracy": float(np.mean(accs)),
-            "std_accuracy":  float(np.std(accs)),
-            "mean_f1":       float(np.mean(f1s)),
-            "std_f1":        float(np.std(f1s)),
-            "mean_kappa":    float(np.mean(kappas)),
-            "std_kappa":     float(np.std(kappas)),
+            "folds":          fold_results,
+            "mean_accuracy":  float(np.mean(accs)),
+            "std_accuracy":   float(np.std(accs)),
+            "mean_f1":        float(np.mean(f1s)),
+            "std_f1":         float(np.std(f1s)),
+            "mean_kappa":     float(np.mean(kappas)),
+            "std_kappa":      float(np.std(kappas)),
+            "group_aware":    True,
+            "n_unique_scans": n_unique_scans,
         }, f, indent=2)
     print(f"  K-Fold summary saved: {fold_summary_path}")
 
@@ -195,11 +233,18 @@ def main():
     final_weights_path = os.path.join(RESULTS_DIR, "final_model_best.keras")
     y_cat = to_categorical(y, NUM_CLASSES)
 
-    # For the final model we use a 90/10 internal val split just for callbacks
-    split_idx   = int(0.9 * len(X))
-    indices     = np.random.permutation(len(X))
-    train_idx_f = indices[:split_idx]
-    val_idx_f   = indices[split_idx:]
+    # Internal validation split for the final model's callbacks also
+    # respects group boundaries, so no scan's augmented copy leaks
+    # across this split either.
+    unique_groups   = np.array(sorted(set(groups)))
+    rng             = np.random.default_rng(RANDOM_SEED)
+    shuffled_groups = rng.permutation(unique_groups)
+    split_point     = int(0.9 * len(shuffled_groups))
+    train_groups_f  = set(shuffled_groups[:split_point])
+    val_groups_f    = set(shuffled_groups[split_point:])
+
+    train_idx_f = np.array([i for i, g in enumerate(groups) if g in train_groups_f])
+    val_idx_f   = np.array([i for i, g in enumerate(groups) if g in val_groups_f])
 
     final_callbacks = [
         ModelCheckpoint(
@@ -234,7 +279,6 @@ def main():
 
     print_training_history(final_history, f"{VARIANT_NAME}_final")
 
-    # Save final history
     final_history_path = os.path.join(RESULTS_DIR, "final_model_history.json")
     with open(final_history_path, "w") as f:
         json.dump(
@@ -263,6 +307,8 @@ def main():
             "kfold_std_acc":  round(float(np.std(accs)),  4),
             "kfold_mean_f1":  round(float(np.mean(f1s)),  4),
             "kfold_std_f1":   round(float(np.std(f1s)),   4),
+            "group_aware":    True,
+            "n_unique_scans": n_unique_scans,
         }
     )
 
