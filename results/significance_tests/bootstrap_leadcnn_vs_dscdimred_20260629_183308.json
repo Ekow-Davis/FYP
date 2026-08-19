@@ -1,0 +1,16 @@
+{
+  "timestamp": "20260629_183308",
+  "test": "bootstrap",
+  "model_a": "LEAD-CNN",
+  "model_b": "DSC DimRed",
+  "n_samples": 2115,
+  "n_bootstrap": 10000,
+  "confidence": 0.95,
+  "acc_a": 98.6761,
+  "acc_b": 99.0544,
+  "observed_diff": 0.378251,
+  "ci_lower": -0.094563,
+  "ci_upper": 0.851064,
+  "p_value": 0.0723,
+  "significant_95": false
+}
